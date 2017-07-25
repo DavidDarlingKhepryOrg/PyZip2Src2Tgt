@@ -65,7 +65,7 @@ arg_parser.add_argument('--src_col_delimiter',
 arg_parser.add_argument('--src_col_quotechar',
                         type=str,
                         default='"',
-                        help='source column quotechar')
+                        help='source column quote character')
 
 arg_parser.add_argument('--tgt_path',
                         type=str,
@@ -74,7 +74,7 @@ arg_parser.add_argument('--tgt_path',
 arg_parser.add_argument('--tgt_file_basename',
                         type=str,
                         default='FracFocusRegistry_201707',
-                        help='target file basename')
+                        help='target file base name')
 arg_parser.add_argument('--tgt_file_append',
                         type=str,
                         default=False,
@@ -90,7 +90,7 @@ arg_parser.add_argument('--tgt_col_delimiter',
 arg_parser.add_argument('--tgt_col_quotechar',
                         type=str,
                         default='"',
-                        help='target column quotechar')
+                        help='target column quote character')
 
 arg_parser.add_argument('--break_after_first_file',
                         type=bool,
@@ -104,6 +104,11 @@ arg_parser.add_argument('--rows_flush_interval',
                         type=int,
                         default=100000,
                         help='flush rows to files interval')
+
+arg_parser.add_argument('--max_rows_per_file',
+                        type=int,
+                        default=0,
+                        help='maximum rows per file (0=unlimited)')
 
 args = arg_parser.parse_args()
 
@@ -129,7 +134,8 @@ def main(zip_path,
          tgt_col_quotechar=None,
          break_after_first_file=None,
          rows_flush_interval=None,
-         progress_msg_template=None):
+         progress_msg_template=None,
+         max_rows_per_file=None):
     
     # default incoming parameters
     # as needed if they are None
@@ -157,6 +163,8 @@ def main(zip_path,
         rows_flush_interval = args.rows_flush_interval
     if progress_msg_template is None:
         progress_msg_template = args.progress_msg_template
+    if max_rows_per_file is None:
+        max_rows_per_file = args.max_rows_per_file
     
     if zip_path.startswith('~'):
         zip_path = os.path.expanduser(zip_path)
@@ -215,10 +223,10 @@ def main(zip_path,
                     # from which it was originally split into CSVs
                     for filename in sorted(filenames.items(), key=itemgetter(1)):
                         # derive the temporary file's name
-                        tmp_file_name = os.path.join(zip_path, filename[0])
+                        tmp_file_name = os.path.join(src_path, filename[0])
                         # extract file from zip archive
                         # into the zip archive's path
-                        zh.extract(filename[0], zip_path)
+                        zh.extract(filename[0], src_path)
                         # sleep 1 second
                         # to allow extract
                         # to close output file
@@ -232,10 +240,21 @@ def main(zip_path,
                                 # build target file name for output
                                 if tgt_file_basename is None:
                                     tgt_file_name = os.path.join(tgt_path,
-                                                        os.path.splitext(file)[0] + tgt_file_extension)
+                                                        os.path.splitext(os.path.basename(tmp_file_name))[0] + tgt_file_extension)
                                 else:
                                     tgt_file_name = os.path.join(tgt_path,
                                                         tgt_file_basename + tgt_file_extension)
+                                # if it's the first file
+                                # or the target file name
+                                # is to be different for each
+                                # file in the archive's manifest
+                                if first_file or tgt_file_basename is None:
+                                    # don't bypass the header row
+                                    bypass_header_row = False
+                                # otherwise
+                                else:
+                                    # bypass the header row
+                                    bypass_header_row = True
                                 # convert the source CSV
                                 # to the target CSV, with
                                 # delimiter and quote char
@@ -246,7 +265,11 @@ def main(zip_path,
                                              src_col_delimiter,
                                              tgt_col_delimiter,
                                              src_col_quotechar,
-                                             tgt_col_quotechar)
+                                             tgt_col_quotechar,
+                                             bypass_header_row,
+                                             rows_flush_interval,
+                                             progress_msg_template,
+                                             max_rows_per_file)
                                 first_file = False
                                 if break_after_first_file:
                                     break
@@ -264,8 +287,10 @@ def src2tgt_file(src_file_name,
                  tgt_col_delimiter=None,
                  src_col_quotechar=None,
                  tgt_col_quotechar=None,
+                 bypass_header_row=None,
                  rows_flush_interval=None,
-                 progress_msg_template=None):
+                 progress_msg_template=None,
+                 max_rows_per_file=None):
     
     if src_col_delimiter is None:
         src_col_delimiter = args.src_col_delimiter
@@ -277,10 +302,14 @@ def src2tgt_file(src_file_name,
         tgt_col_quotechar = args.tgt_col_quotechar
     if tgt_file_mode is None:
         tgt_file_mode = 'w'
+    if bypass_header_row is None:
+        bypass_header_row = False
     if rows_flush_interval is None:
         rows_flush_interval = args.rows_flush_interval
     if progress_msg_template is None:
         progress_msg_template = args.progress_msg_template
+    if max_rows_per_file is None:
+        max_rows_per_file = args.max_rows_per_file
     
     print('')
     print('=============================')
@@ -312,20 +341,30 @@ def src2tgt_file(src_file_name,
             # row-by-row
             for row in csv_reader:
                 rows += 1
-                # output row to CSV writer
-                csv_writer.writerow(row)
+                # assuming each file has a header row
+                if not bypass_header_row or rows > 1:
+                    # output row to CSV writer
+                    csv_writer.writerow(row)
                 # flush output based on the interval
                 if rows % rows_flush_interval == 0:
                     tgt_file.flush()
+                    # output a progress message
                     elapsed_time = time.time() - start_time
                     print(progress_msg_template.format(src_file_name,
                                                        rows,
                                                        elapsed_time,
                                                        rows / elapsed_time if elapsed_time > 0 else rows))
+                    
+                # if max rows per file is not unlimited, i.e. equal to zero
+                # and the number of rows exceeds the max rows per file value
+                if max_rows_per_file > 0 and rows >= max_rows_per_file:
+                    # cease processing this file
+                    break
         
         # flush output at the end
         # of the CSV input file
         tgt_file.flush()
+        # output a progress message
         elapsed_time = time.time() - start_time
         print(progress_msg_template.format(src_file_name,
                                            rows,
@@ -352,7 +391,8 @@ if __name__ == "__main__":
          args.tgt_col_quotechar,
          args.break_after_first_file,
          args.rows_flush_interval,
-         args.progress_msg_template)
+         args.progress_msg_template,
+         args.max_rows_per_file)
     
     print(os.linesep + 'Processing finished!')
 
