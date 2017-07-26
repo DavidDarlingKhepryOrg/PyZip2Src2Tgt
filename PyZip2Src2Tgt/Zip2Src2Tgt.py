@@ -36,6 +36,25 @@ import zipfile
 # by either their keys or values
 from operator import itemgetter
 
+# character transformation tuples list used for
+# transforming characters from one character to another
+# as some analytical tools are unable to handle mixed
+# characters, e.g. Unicode and ASCII, during importation
+
+char_xform_tuples_list = []
+
+char_xform_tuples_list.append(('\r\n', ' ')) # carriage-return, line-feed to single space
+char_xform_tuples_list.append(('\n', ' ')) # line-feed to single space
+char_xform_tuples_list.append(('\t', ' ')) # tab to single space
+char_xform_tuples_list.append((u'\x91', ' ')) # diachritic left single quote to single space
+char_xform_tuples_list.append((u'\x92', ' ')) # diachritic right single quote to single space
+char_xform_tuples_list.append((u'\x93', ' ')) # diachritic left double quote to single space
+char_xform_tuples_list.append((u'\x94', ' ')) # diachritic right double quote to single space
+char_xform_tuples_list.append((u'\xa0', ' ')) # non-breaking space to single space
+
+# make sure this character transformation is always the last one added! 
+char_xform_tuples_list.append(('  ', ' ')) # double-space to single space
+
 # handle incoming parameters,
 # pushing their values into the
 # args dictionary for later usage
@@ -135,7 +154,8 @@ def main(zip_path,
          break_after_first_file=None,
          rows_flush_interval=None,
          progress_msg_template=None,
-         max_rows_per_file=None):
+         max_rows_per_file=None,
+         char_xform_tuples_list=None):
     
     # default incoming parameters
     # as needed if they are None
@@ -269,7 +289,8 @@ def main(zip_path,
                                              bypass_header_row,
                                              rows_flush_interval,
                                              progress_msg_template,
-                                             max_rows_per_file)
+                                             max_rows_per_file,
+                                             char_xform_tuples_list)
                                 first_file = False
                                 if break_after_first_file:
                                     break
@@ -290,7 +311,8 @@ def src2tgt_file(src_file_name,
                  bypass_header_row=None,
                  rows_flush_interval=None,
                  progress_msg_template=None,
-                 max_rows_per_file=None):
+                 max_rows_per_file=None,
+                 char_xform_tuples_list=None):
     
     if src_col_delimiter is None:
         src_col_delimiter = args.src_col_delimiter
@@ -310,6 +332,8 @@ def src2tgt_file(src_file_name,
         progress_msg_template = args.progress_msg_template
     if max_rows_per_file is None:
         max_rows_per_file = args.max_rows_per_file
+    if char_xform_tuples_list is None:
+        char_xform_tuples_list = []
     
     print('')
     print('=============================')
@@ -343,6 +367,17 @@ def src2tgt_file(src_file_name,
                 rows += 1
                 # assuming each file has a header row
                 if not bypass_header_row or rows > 1:
+                    # if character transformations
+                    # were specified in the tuples list
+                    if len(char_xform_tuples_list) > 0:
+                        # for each row column
+                        for i in range(len(row)):
+                            # character transform by character transform
+                            for char_xform_tuple in char_xform_tuples_list:
+                                # while any matching characters are found
+                                while char_xform_tuple[0] in row[i]:
+                                    # transform the matching characters into the specified target characters
+                                    row[i] = row[i].replace(char_xform_tuple[0], char_xform_tuple[1]).strip()
                     # output row to CSV writer
                     csv_writer.writerow(row)
                 # flush output based on the interval
@@ -392,7 +427,8 @@ if __name__ == "__main__":
          args.break_after_first_file,
          args.rows_flush_interval,
          args.progress_msg_template,
-         args.max_rows_per_file)
+         args.max_rows_per_file,
+         char_xform_tuples_list)
     
     print(os.linesep + 'Processing finished!')
 
