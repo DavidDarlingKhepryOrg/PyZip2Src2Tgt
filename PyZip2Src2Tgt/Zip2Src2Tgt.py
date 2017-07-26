@@ -46,10 +46,10 @@ char_xform_tuples_list = []
 char_xform_tuples_list.append(('\r\n', ' ')) # carriage-return, line-feed to single space
 char_xform_tuples_list.append(('\n', ' ')) # line-feed to single space
 char_xform_tuples_list.append(('\t', ' ')) # tab to single space
-char_xform_tuples_list.append((u'\x91', "'")) # diachritic left single quote to single space
-char_xform_tuples_list.append((u'\x92', "'")) # diachritic right single quote to single space
-char_xform_tuples_list.append((u'\x93', '"')) # diachritic left double quote to single space
-char_xform_tuples_list.append((u'\x94', '"')) # diachritic right double quote to single space
+char_xform_tuples_list.append((u'\x91', "'")) # diacritic left single quote to ASCII single quote
+char_xform_tuples_list.append((u'\x92', "'")) # diacritic right single quote to ASCII single quote
+char_xform_tuples_list.append((u'\x93', '"')) # diacritic left double quote to ASCII double quote
+char_xform_tuples_list.append((u'\x94', '"')) # diacritic right double quote to ASCII double quote
 char_xform_tuples_list.append((u'\xa0', ' ')) # non-breaking space to single space
 
 # make sure this character transformation is always the last one added! 
