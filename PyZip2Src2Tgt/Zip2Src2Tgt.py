@@ -111,6 +111,30 @@ arg_parser.add_argument('--tgt_col_quotechar',
                         default='"',
                         help='target column quote character')
 
+arg_parser.add_argument('--tox_path',
+                        type=str,
+                        default='~/Desktop/TOXs/',
+                        help='toxicities file path')
+arg_parser.add_argument('--tox_file_name',
+                        type=str,
+                        default='Chemical_Toxicities_Blended_Grouped.tsv',
+                        help='toxicities file name')
+arg_parser.add_argument('--tox_lookup_key_col_name',
+                        type=str,
+                        default='tox_cas_edf_id',
+                        help='toxicities lookup key column name')
+arg_parser.add_argument('--tox_lookup_result_col_names',
+                        type=str,
+                        default='tox_recognized,tox_suspected',
+                        help='toxicities lookup result column names')
+arg_parser.add_argument('--tox_col_delimiter',
+                        type=str, default='\t',
+                        help='toxicities column delimiter')
+arg_parser.add_argument('--tox_col_quotechar',
+                        type=str,
+                        default='"',
+                        help='toxicities column quote character')
+
 arg_parser.add_argument('--break_after_first_file',
                         type=bool,
                         default=False,
@@ -151,6 +175,12 @@ def main(zip_path,
          tgt_col_delimiter=None,
          src_col_quotechar=None,
          tgt_col_quotechar=None,
+         tox_path=None,
+         tox_file_name=None,
+         tox_lookup_key_col_name=None,
+         tox_lookup_result_col_names=None,
+         tox_col_delimiter=None,
+         tox_col_quotechar=None,
          break_after_first_file=None,
          rows_flush_interval=None,
          progress_msg_template=None,
@@ -167,16 +197,24 @@ def main(zip_path,
         zip_file_extension = args.zip_file_extension
     if src_col_delimiter is None:
         src_col_delimiter = args.src_col_delimiter
+    if tox_col_delimiter is None:
+        tox_col_delimiter = args.tox_col_delimiter
     if tgt_col_delimiter is None:
         tgt_col_delimiter = args.tgt_col_delimiter
     if src_col_quotechar is None:
         src_col_quotechar = args.src_col_quotechar
+    if tox_col_quotechar is None:
+        tox_col_quotechar = args.tox_col_quotechar
     if tgt_col_quotechar is None:
         tgt_col_quotechar = args.tgt_col_quotechar
     if tgt_file_basename is None:
         tgt_file_basename = args.tgt_file_basename
     if tgt_file_append is None:
         tgt_file_append = args.tgt_file_append
+    if tox_lookup_key_col_name is None:
+        tox_lookup_key_col_name = args.tox_lookup_key_col_name
+    if tox_lookup_result_col_names is None:
+        tox_lookup_result_col_names = args.tox_lookup_result_col_names
     if break_after_first_file is None:
         break_after_first_file = args.break_after_first_file
     if rows_flush_interval is None:
@@ -186,35 +224,61 @@ def main(zip_path,
     if max_rows_per_file is None:
         max_rows_per_file = args.max_rows_per_file
     
-    if zip_path.startswith('~'):
-        zip_path = os.path.expanduser(zip_path)
-        
-    if not os.path.exists(zip_path):
-        os.makedirs(zip_path)
-        
-    if not os.path.exists(zip_path):
-        print('--zip_path not found: %s' % zip_path)
-        sys.exit(404)
+    if zip_path is not None:
+        if zip_path.startswith('~'):
+            zip_path = os.path.expanduser(zip_path)
+            
+        if not os.path.exists(zip_path):
+            os.makedirs(zip_path)
+            
+        if not os.path.exists(zip_path):
+            print('--zip_path not found: %s' % zip_path)
+            sys.exit(404)
     
-    if src_path.startswith('~'):
-        src_path = os.path.expanduser(src_path)
-        
-    if not os.path.exists(src_path):
-        os.makedirs(src_path)
-        
-    if not os.path.exists(src_path):
+    if src_path is not None:
+        if src_path.startswith('~'):
+            src_path = os.path.expanduser(src_path)
+            
+        if not os.path.exists(src_path):
+            os.makedirs(src_path)
+            
+        if not os.path.exists(src_path):
+            print('--src_path not found: %s' % src_path)
+            sys.exit(404)
+
+    if src_path is None or not os.path.exists(src_path):
         print('--src_path not found: %s' % src_path)
         sys.exit(404)
 
-    if tgt_path.startswith('~'):
-        tgt_path = os.path.expanduser(tgt_path)
-        
-    if not os.path.exists(tgt_path):
-        os.makedirs(tgt_path)
-        
-    if not os.path.exists(tgt_path):
+    if tgt_path is not None:
+        if tgt_path.startswith('~'):
+            tgt_path = os.path.expanduser(tgt_path)
+            
+        if not os.path.exists(tgt_path):
+            os.makedirs(tgt_path)
+
+    if tgt_path is None or not os.path.exists(tgt_path):
         print('--tgt_path not found: %s' % tgt_path)
         sys.exit(404)
+
+    if tox_path is not None:    
+        if tox_path.startswith('~'):
+            tox_path = os.path.expanduser(tox_path)
+            
+        if not os.path.exists(tox_path):
+            os.makedirs(tox_path)
+            
+        if not os.path.exists(tox_path):
+            print('--tox_path not found: %s' % tox_path)
+            sys.exit(404)
+
+    if tox_path is not None and tox_file_name is not None:
+        tox_file_name = os.path.join(tox_path,
+                                     tox_file_name)
+        
+        if not os.path.exists(tox_file_name):
+            print('--tox_file_name not found: %s' % tox_file_name)
+            sys.exit(404)
 
     # dictionary used to hold
     # to hold the filenames found
@@ -286,6 +350,11 @@ def main(zip_path,
                                              tgt_col_delimiter,
                                              src_col_quotechar,
                                              tgt_col_quotechar,
+                                             tox_file_name,
+                                             tox_lookup_key_col_name,
+                                             tox_lookup_result_col_names,
+                                             tox_col_delimiter,
+                                             tox_col_quotechar,
                                              bypass_header_row,
                                              rows_flush_interval,
                                              progress_msg_template,
@@ -308,6 +377,11 @@ def src2tgt_file(src_file_name,
                  tgt_col_delimiter=None,
                  src_col_quotechar=None,
                  tgt_col_quotechar=None,
+                 tox_file_name=None,
+                 tox_lookup_key_col_name=None,
+                 tox_lookup_result_col_names=None,
+                 tox_col_delimiter=None,
+                 tox_col_quotechar=None,
                  bypass_header_row=None,
                  rows_flush_interval=None,
                  progress_msg_template=None,
@@ -316,14 +390,22 @@ def src2tgt_file(src_file_name,
     
     if src_col_delimiter is None:
         src_col_delimiter = args.src_col_delimiter
+    if tox_col_delimiter is None:
+        tox_col_delimiter = args.tox_col_delimiter
     if tgt_col_delimiter is None:
         tgt_col_delimiter = args.tgt_col_delimiter
     if src_col_quotechar is None:
         src_col_quotechar = args.src_col_quotechar
+    if tox_col_quotechar is None:
+        tox_col_quotechar = args.tox_col_quotechar
     if tgt_col_quotechar is None:
         tgt_col_quotechar = args.tgt_col_quotechar
     if tgt_file_mode is None:
         tgt_file_mode = 'w'
+    if tox_lookup_key_col_name is None:
+        tox_lookup_key_col_name = args.tox_lookup_key_col_name
+    if tox_lookup_result_col_names is None:
+        tox_lookup_result_col_names = args.tox_lookup_result_col_names
     if bypass_header_row is None:
         bypass_header_row = False
     if rows_flush_interval is None:
@@ -424,11 +506,17 @@ if __name__ == "__main__":
          args.tgt_col_delimiter,
          args.src_col_quotechar,
          args.tgt_col_quotechar,
+         args.tox_path,
+         args.tox_file_name,
+         args.tox_lookup_key_col_name,
+         args.tox_lookup_result_col_names,
+         args.tox_col_delimiter,
+         args.tox_col_quotechar,
          args.break_after_first_file,
          args.rows_flush_interval,
          args.progress_msg_template,
          args.max_rows_per_file,
          char_xform_tuples_list)
-    
+
     print(os.linesep + 'Processing finished!')
 
