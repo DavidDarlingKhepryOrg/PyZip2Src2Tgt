@@ -36,6 +36,9 @@ import zipfile
 # by either their keys or values
 from operator import itemgetter
 
+# used for debugging vars
+from pprint import pprint
+
 # character transformation tuples list used for
 # transforming characters from one character to another
 # as some analytical tools are unable to handle mixed
@@ -125,7 +128,8 @@ arg_parser.add_argument('--tox_lookup_key_col_name',
                         help='toxicities lookup key column name')
 arg_parser.add_argument('--tox_lookup_result_col_names',
                         type=str,
-                        default='tox_recognized,tox_suspected',
+                        nargs='+',
+                        default=['tox_recognized','tox_suspected'],
                         help='toxicities lookup result column names')
 arg_parser.add_argument('--tox_col_delimiter',
                         type=str, default='\t',
@@ -137,7 +141,7 @@ arg_parser.add_argument('--tox_col_quotechar',
 
 arg_parser.add_argument('--break_after_first_file',
                         type=bool,
-                        default=False,
+                        default=True,
                         help='break after processing first file')
 arg_parser.add_argument('--progress_msg_template',
                         type=str,
@@ -150,7 +154,7 @@ arg_parser.add_argument('--rows_flush_interval',
 
 arg_parser.add_argument('--max_rows_per_file',
                         type=int,
-                        default=0,
+                        default=10,
                         help='maximum rows per file (0=unlimited)')
 
 args = arg_parser.parse_args()
@@ -279,6 +283,35 @@ def main(zip_path,
         if not os.path.exists(tox_file_name):
             print('--tox_file_name not found: %s' % tox_file_name)
             sys.exit(404)
+    
+    # if the toxicities file name is specified and exists
+    # implement the loading of the toxicities lookup dictionary
+    
+    
+    tox_dict = {}
+    
+    if tox_file_name is not None:
+    
+        print('')
+        print('=============================')
+        print('TOX file: %s' % tox_file_name)
+        print('-----------------------------')
+        print('tox_dict loading...')
+
+        with io.open(tox_file_name, 'r', newline='') as tox_file:
+            tox_dict_reader = csv.DictReader(tox_file,
+                                             delimiter=tox_col_delimiter,
+                                             quotechar=tox_col_quotechar,
+                                             quoting=csv.QUOTE_MINIMAL)
+        
+            for row in tox_dict_reader:
+                lookup_values_dict = {}
+                for col_name in tox_lookup_result_col_names:
+                    lookup_values_dict[col_name] = row[col_name]
+                tox_dict[row[tox_lookup_key_col_name]] = lookup_values_dict
+                
+        print('tox_dict loading finished!')
+        # pprint(tox_dict)
 
     # dictionary used to hold
     # to hold the filenames found
@@ -350,7 +383,7 @@ def main(zip_path,
                                              tgt_col_delimiter,
                                              src_col_quotechar,
                                              tgt_col_quotechar,
-                                             tox_file_name,
+                                             tox_dict,
                                              tox_lookup_key_col_name,
                                              tox_lookup_result_col_names,
                                              tox_col_delimiter,
@@ -377,7 +410,7 @@ def src2tgt_file(src_file_name,
                  tgt_col_delimiter=None,
                  src_col_quotechar=None,
                  tgt_col_quotechar=None,
-                 tox_file_name=None,
+                 tox_dict=None,
                  tox_lookup_key_col_name=None,
                  tox_lookup_result_col_names=None,
                  tox_col_delimiter=None,
@@ -421,7 +454,7 @@ def src2tgt_file(src_file_name,
     print('=============================')
     print('SRC file: %s' % src_file_name)
     print('-----------------------------')
-    
+                    
     # open the target file for either write or append,
     # depending upon the incoming file_mode value ('w' or 'a')
     with io.open(tgt_file_name, tgt_file_mode, newline='') as tgt_file:
@@ -494,6 +527,8 @@ def src2tgt_file(src_file_name,
   
 if __name__ == "__main__":
     
+    print(os.linesep + "PyZip2Src2Tgt.Zip2Src2Tgt.py processing started...")
+    
     main(args.zip_path,
          args.src_path,
          args.tgt_path,
@@ -518,5 +553,5 @@ if __name__ == "__main__":
          args.max_rows_per_file,
          char_xform_tuples_list)
 
-    print(os.linesep + 'Processing finished!')
+    print(os.linesep + "PyZip2Src2Tgt.Zip2Src2Tgt.py processing finished!")
 
