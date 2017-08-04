@@ -23,6 +23,13 @@
 # to a(many) target file(s) with a specified "target" file extension. 
 #
 # ========================================================================
+#
+# TODO: Make sure that the toxicity values being appended to each row
+# are correct both in value and in order for the CASNumber in question.
+# Presently, a dictionary is being used for the toxicity values and it
+# might need to be adjusted to a list object instead to preserve order. 
+#
+# ========================================================================
 
 import argparse
 import csv
@@ -88,6 +95,10 @@ arg_parser.add_argument('--src_col_quotechar',
                         type=str,
                         default='"',
                         help='source column quote character')
+arg_parser.add_argument('--src_tox_lookup_col_name',
+                        type=str,
+                        default='CASNumber',
+                        help='source toxicity lookup column name')
 
 arg_parser.add_argument('--tgt_path',
                         type=str,
@@ -138,6 +149,10 @@ arg_parser.add_argument('--tox_col_quotechar',
                         type=str,
                         default='"',
                         help='toxicities column quote character')
+arg_parser.add_argument('--tox_default_value',
+                        type=str,
+                        default='None',
+                        help='toxicities default value')
 
 arg_parser.add_argument('--break_after_first_file',
                         type=bool,
@@ -154,7 +169,7 @@ arg_parser.add_argument('--rows_flush_interval',
 
 arg_parser.add_argument('--max_rows_per_file',
                         type=int,
-                        default=10,
+                        default=0,
                         help='maximum rows per file (0=unlimited)')
 
 args = arg_parser.parse_args()
@@ -179,12 +194,14 @@ def main(zip_path,
          tgt_col_delimiter=None,
          src_col_quotechar=None,
          tgt_col_quotechar=None,
+         src_tox_lookup_col_name=None,
          tox_path=None,
          tox_file_name=None,
          tox_lookup_key_col_name=None,
          tox_lookup_result_col_names=None,
          tox_col_delimiter=None,
          tox_col_quotechar=None,
+         tox_default_value=None,
          break_after_first_file=None,
          rows_flush_interval=None,
          progress_msg_template=None,
@@ -209,12 +226,16 @@ def main(zip_path,
         src_col_quotechar = args.src_col_quotechar
     if tox_col_quotechar is None:
         tox_col_quotechar = args.tox_col_quotechar
+    if tox_default_value is None:
+        tox_default_value = args.tox_default_value
     if tgt_col_quotechar is None:
         tgt_col_quotechar = args.tgt_col_quotechar
     if tgt_file_basename is None:
         tgt_file_basename = args.tgt_file_basename
     if tgt_file_append is None:
         tgt_file_append = args.tgt_file_append
+    if src_tox_lookup_col_name is None:
+        src_tox_lookup_col_name = args.src_tox_lookup_col_name
     if tox_lookup_key_col_name is None:
         tox_lookup_key_col_name = args.tox_lookup_key_col_name
     if tox_lookup_result_col_names is None:
@@ -401,11 +422,13 @@ def main(zip_path,
                                              tgt_col_delimiter,
                                              src_col_quotechar,
                                              tgt_col_quotechar,
+                                             src_tox_lookup_col_name,
                                              tox_dict,
                                              tox_lookup_key_col_name,
                                              tox_lookup_result_col_names,
                                              tox_col_delimiter,
                                              tox_col_quotechar,
+                                             tox_default_value,
                                              bypass_header_row,
                                              rows_flush_interval,
                                              progress_msg_template,
@@ -428,11 +451,13 @@ def src2tgt_file(src_file_name,
                  tgt_col_delimiter=None,
                  src_col_quotechar=None,
                  tgt_col_quotechar=None,
+                 src_tox_lookup_col_name=None,
                  tox_dict=None,
                  tox_lookup_key_col_name=None,
                  tox_lookup_result_col_names=None,
                  tox_col_delimiter=None,
                  tox_col_quotechar=None,
+                 tox_default_value=None,
                  bypass_header_row=None,
                  rows_flush_interval=None,
                  progress_msg_template=None,
@@ -453,10 +478,14 @@ def src2tgt_file(src_file_name,
         tgt_col_quotechar = args.tgt_col_quotechar
     if tgt_file_mode is None:
         tgt_file_mode = 'w'
+    if src_tox_lookup_col_name is None:
+        src_tox_lookup_col_name = args.src_tox_lookup_col_name
     if tox_lookup_key_col_name is None:
         tox_lookup_key_col_name = args.tox_lookup_key_col_name
     if tox_lookup_result_col_names is None:
         tox_lookup_result_col_names = args.tox_lookup_result_col_names
+    if tox_default_value is None:
+        tox_default_value = args.tox_default_value
     if bypass_header_row is None:
         bypass_header_row = False
     if rows_flush_interval is None:
@@ -467,6 +496,8 @@ def src2tgt_file(src_file_name,
         max_rows_per_file = args.max_rows_per_file
     if char_xform_tuples_list is None:
         char_xform_tuples_list = []
+        
+    tox_empty_dict = {}
     
     print('')
     print('=============================')
@@ -498,6 +529,9 @@ def src2tgt_file(src_file_name,
             # row-by-row
             for row in csv_reader:
                 rows += 1
+                if rows == 1:
+                    # find index of src_tox_lookup_col_name
+                    src_tox_lookup_col_index = row.index(src_tox_lookup_col_name)
                 # assuming each file has a header row
                 if not bypass_header_row or rows > 1:
                     # if character transformations
@@ -511,6 +545,28 @@ def src2tgt_file(src_file_name,
                                 while char_xform_tuple[0] in row[i]:
                                     # transform the matching characters into the specified target characters
                                     row[i] = row[i].replace(char_xform_tuple[0], char_xform_tuple[1]).strip()
+                    # if toxicities lookup
+                    # file was specified
+                    if tox_dict:
+                        # if this is
+                        # a data row
+                        if rows > 1:
+                            try:
+                                tox_values_dict = tox_dict[row[src_tox_lookup_col_index]]
+                            except KeyError:
+                                tox_values_dict = tox_empty_dict
+                            # print("%s: %s" % (src_tox_lookup_col_name, row[src_tox_lookup_col_index]))
+                            # pprint(tox_values_dict)
+                            for value in tox_values_dict.values():
+                                row.append(value)
+                        # otherwise, it's a header
+                        else:
+                            # build empty toxicities results dictionary
+                            # for later usage when no lookup match is found
+                            tox_empty_dict = {}
+                            for col_name in tox_lookup_result_col_names:
+                                row.append(col_name)
+                                tox_empty_dict[col_name] = tox_default_value
                     # output row to CSV writer
                     csv_writer.writerow(row)
                 # flush output based on the interval
@@ -559,12 +615,14 @@ if __name__ == "__main__":
          args.tgt_col_delimiter,
          args.src_col_quotechar,
          args.tgt_col_quotechar,
+         args.src_tox_lookup_col_name,
          args.tox_path,
          args.tox_file_name,
          args.tox_lookup_key_col_name,
          args.tox_lookup_result_col_names,
          args.tox_col_delimiter,
          args.tox_col_quotechar,
+         args.tox_default_value,
          args.break_after_first_file,
          args.rows_flush_interval,
          args.progress_msg_template,
