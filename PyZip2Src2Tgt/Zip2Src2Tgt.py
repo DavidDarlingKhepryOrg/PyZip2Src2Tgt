@@ -287,7 +287,6 @@ def main(zip_path,
     # if the toxicities file name is specified and exists
     # implement the loading of the toxicities lookup dictionary
     
-    
     tox_dict = {}
     
     if tox_file_name is not None:
@@ -296,7 +295,10 @@ def main(zip_path,
         print('=============================')
         print('TOX file: %s' % tox_file_name)
         print('-----------------------------')
-        print('tox_dict loading...')
+        print('toxicities lookup dictionary loading started...')
+        
+        rows = 0
+        start_time = time.time()
 
         with io.open(tox_file_name, 'r', newline='') as tox_file:
             tox_dict_reader = csv.DictReader(tox_file,
@@ -305,12 +307,28 @@ def main(zip_path,
                                              quoting=csv.QUOTE_MINIMAL)
         
             for row in tox_dict_reader:
+                rows += 1
                 lookup_values_dict = {}
                 for col_name in tox_lookup_result_col_names:
                     lookup_values_dict[col_name] = row[col_name]
                 tox_dict[row[tox_lookup_key_col_name]] = lookup_values_dict
                 
-        print('tox_dict loading finished!')
+                # flush output based on the interval
+                if rows % rows_flush_interval == 0:
+                    # output a progress message
+                    elapsed_time = time.time() - start_time
+                    print(progress_msg_template.format(tox_file_name,
+                                                       rows,
+                                                       elapsed_time,
+                                                       rows / elapsed_time if elapsed_time > 0 else rows))
+        # output a progress message
+        elapsed_time = time.time() - start_time
+        print(progress_msg_template.format(tox_file_name,
+                                           rows,
+                                           elapsed_time,
+                                           rows / elapsed_time if elapsed_time > 0 else rows))
+                
+        print('toxicities lookup dictionary loading finished!')
         # pprint(tox_dict)
 
     # dictionary used to hold
