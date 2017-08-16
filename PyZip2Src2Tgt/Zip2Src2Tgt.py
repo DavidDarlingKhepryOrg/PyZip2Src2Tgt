@@ -84,6 +84,10 @@ arg_parser.add_argument('--src_path',
                         type=str,
                         default='~/Desktop/CSVs/',
                         help='source file path')
+arg_parser.add_argument('--src_file_prefix',
+                        type=str,
+                        default='FracFocusRegistry_',
+                        help='source file prefix')
 arg_parser.add_argument('--src_file_extension',
                         type=str,
                         default='.csv',
@@ -106,7 +110,7 @@ arg_parser.add_argument('--tgt_path',
                         help='target file path')
 arg_parser.add_argument('--tgt_file_basename',
                         type=str,
-                        default='FracFocusRegistry_201707',
+                        default='FracFocusRegistry_201708',
                         help='target file base name')
 arg_parser.add_argument('--tgt_file_append',
                         type=str,
@@ -131,7 +135,7 @@ arg_parser.add_argument('--tox_path',
                         help='toxicities file path')
 arg_parser.add_argument('--tox_file_name',
                         type=str,
-                        default='Chemical_Toxicities_Blended_Grouped.tsv',
+                        default='Chemical_Toxicities_Blended_Grouped.csv',
                         help='toxicities file name')
 arg_parser.add_argument('--tox_lookup_key_col_name',
                         type=str,
@@ -143,7 +147,7 @@ arg_parser.add_argument('--tox_lookup_result_col_names',
                         default=['tox_recognized','tox_suspected'],
                         help='toxicities lookup result column names')
 arg_parser.add_argument('--tox_col_delimiter',
-                        type=str, default='\t',
+                        type=str, default=',',
                         help='toxicities column delimiter')
 arg_parser.add_argument('--tox_col_quotechar',
                         type=str,
@@ -156,7 +160,7 @@ arg_parser.add_argument('--tox_default_value',
 
 arg_parser.add_argument('--break_after_first_file',
                         type=bool,
-                        default=True,
+                        default=False,
                         help='break after processing first file')
 arg_parser.add_argument('--progress_msg_template',
                         type=str,
@@ -187,6 +191,7 @@ def main(zip_path,
          tgt_path,
          tgt_file_basename=None,
          tgt_file_append=None,
+         src_file_prefix=None,
          zip_file_extension=None,
          src_file_extension=None,
          tgt_file_extension=None,
@@ -210,6 +215,8 @@ def main(zip_path,
     
     # default incoming parameters
     # as needed if they are None
+    if src_file_prefix is None:
+        src_file_prefix = args.src_file_prefix
     if src_file_extension is None:
         src_file_extension = args.src_file_extension
     if tgt_file_extension is None:
@@ -378,6 +385,9 @@ def main(zip_path,
                     # so that the data is likely in the same order
                     # from which it was originally split into CSVs
                     for filename in sorted(filenames.items(), key=itemgetter(1)):
+                        # filename prefix needs to match source file prefix
+                        if not filename[0].lower().startswith(src_file_prefix.lower()):
+                            continue
                         # derive the temporary file's name
                         tmp_file_name = os.path.join(src_path, filename[0])
                         # extract file from zip archive
@@ -608,6 +618,7 @@ if __name__ == "__main__":
          args.tgt_path,
          args.tgt_file_basename,
          args.tgt_file_append,
+         args.src_file_prefix,
          args.zip_file_extension,
          args.src_file_extension,
          args.tgt_file_extension,
