@@ -106,11 +106,11 @@ arg_parser.add_argument('--src_tox_lookup_col_name',
 
 arg_parser.add_argument('--tgt_path',
                         type=str,
-                        default='~/Desktop/TSVs/',
+                        default='~/Desktop/CSVs/',
                         help='target file path')
 arg_parser.add_argument('--tgt_file_basename',
                         type=str,
-                        default='FracFocusRegistry_201708',
+                        default='FracFocusRegistry_20170905',
                         help='target file base name')
 arg_parser.add_argument('--tgt_file_append',
                         type=str,
@@ -118,11 +118,11 @@ arg_parser.add_argument('--tgt_file_append',
                         help='target file append')
 arg_parser.add_argument('--tgt_file_extension',
                         type=str,
-                        default='.tsv',
+                        default='.csv',
                         help='target file extension')
 arg_parser.add_argument('--tgt_col_delimiter',
                         type=str,
-                        default='\t',
+                        default=',',
                         help='target column delimiter')
 arg_parser.add_argument('--tgt_col_quotechar',
                         type=str,
