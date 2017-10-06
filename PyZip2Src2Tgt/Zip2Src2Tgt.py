@@ -110,7 +110,7 @@ arg_parser.add_argument('--tgt_path',
                         help='target file path')
 arg_parser.add_argument('--tgt_file_basename',
                         type=str,
-                        default='FracFocusRegistry_20170915',
+                        default='FracFocusRegistry_20171004',
                         help='target file base name')
 arg_parser.add_argument('--tgt_file_append',
                         type=str,
